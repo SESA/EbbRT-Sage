@@ -1,0 +1,5 @@
+*.o
+*.d
+*.capnp.*
+*.elf*
+hosted/build/lib
