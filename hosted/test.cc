@@ -9,16 +9,25 @@
 
 int main() {
   activate_context();
-  auto f = Matrix::Create(1000, 1000, 200, 200);
+  auto f = Matrix::Create(5, 5, 5, 5);
   auto m = wait_for_future<ebbrt::EbbRef<Matrix>>(&f);
   deactivate_context();
 
   activate_context();
-  auto ref = m.GetPointer();
-  auto fut = ref->Get(3, 4);
+  auto fv1 = m->Get(0, 0);
+  auto v1 = wait_for_future<double>(&fv1);
+  std::cout << v1 << std::endl;
   deactivate_context();
-  auto ret = wait_for_future<double>(&fut);
-  std::cout << ret << std::endl;
   
+
+  activate_context();
+  auto f2 = Matrix::Create(5, 5, 5, 5);
+  auto m2 = wait_for_future<ebbrt::EbbRef<Matrix>>(&f2);
+  deactivate_context();
+
+  activate_context();
+  auto f3 = m->Multiply(m2);
+  auto m3 = wait_for_future<ebbrt::EbbRef<Matrix>>(&f3);
+  deactivate_context();
   return 0;
 }

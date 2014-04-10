@@ -4,6 +4,10 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 #include "Matrix.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#include <boost/numeric/ublas/operation.hpp>
+#pragma GCC diagnostic pop
 #include <capnp/serialize.h>
 
 #include <ebbrt/CapnpMessage.h>
@@ -16,9 +20,11 @@
 EBBRT_PUBLISH_TYPE(, Matrix);
 
 Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
-               size_t y_tile)
-  : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
-    x_tile_(x_tile), y_tile_(y_tile) {}
+               size_t y_tile, ebbrt::Messenger::NetworkId frontend_id)
+    : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
+      x_tile_(x_tile), y_tile_(y_tile),
+      matrix_(boost::numeric::ublas::zero_matrix<double>(x_tile, y_tile)),
+      frontend_id_(frontend_id) {}
 
 Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   {
@@ -39,9 +45,12 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   auto reader = capnp::FlatArrayMessageReader(aptr);
   auto data = reader.getRoot<matrix::GlobalData>();
 
+  const auto& net_addr = data.getNetworkAddress();
+  auto nid = ebbrt::Messenger::NetworkId(std::string(
+      reinterpret_cast<const char*>(net_addr.begin()), net_addr.size()));
   // try to construct
   auto p = new Matrix(id, data.getXDim(), data.getYDim(), data.getXTile(),
-                      data.getYTile());
+                      data.getYTile(), nid);
 
   auto inserted = ebbrt::local_id_map->Insert(std::make_pair(id, p));
   if (inserted) {
@@ -57,10 +66,6 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   auto& m = *boost::any_cast<Matrix*>(accessor->second);
   ebbrt::EbbRef<Matrix>::CacheRef(id, m);
   return m;
-}
-
-ebbrt::Future<double> Matrix::Get(size_t x, size_t y) {
-  return ebbrt::MakeReadyFuture<double>(0);
 }
 
 // ebbrt::SharedFuture<ebbrt::Messenger::NetworkId>& GetNode(size_t nid) {
@@ -94,16 +99,93 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
   case matrix::Request::Which::GET_REQUEST: {
     auto get_request = request.getGetRequest();
     auto id = get_request.getId();
-    auto x = get_request.getX();
-    auto y = get_request.getY();
+    auto x = get_request.getX() % x_tile_;
+    auto y = get_request.getY() % y_tile_;
     ebbrt::IOBufMessageBuilder message;
     auto builder = message.initRoot<matrix::Reply>();
     auto get_builder = builder.initGetReply();
     get_builder.setId(id);
-    get_builder.setVal(x * y);
+    get_builder.setVal(matrix_(x, y));
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
+  case matrix::Request::Which::SET_REQUEST: {
+    auto set_request = request.getSetRequest();
+    auto id = set_request.getId();
+    auto x = set_request.getX() % x_tile_;
+    auto y = set_request.getY() % y_tile_;
+    matrix_(x, y) = set_request.getVal();
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto set_builder = builder.initSetReply();
+    set_builder.setId(id);
     SendMessage(nid, AppendHeader(message));
     break;
   }
   case matrix::Request::Which::RANDOMIZE_REQUEST: { break; }
+  case matrix::Request::Which::SEND_DATA_REQUEST: {
+    ebbrt::kprintf("Received Send Request\n");
+    auto send_request = request.getSendDataRequest();
+    auto row = send_request.getRow();
+    auto col = send_request.getCol();
+    auto id = send_request.getId();
+    auto left = send_request.getLeft();
+    auto nodes = send_request.getNodes();
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Request>();
+    auto send_data = builder.initSendData();
+    send_data.setRow(row);
+    send_data.setCol(col);
+    send_data.setLeft(left);
+    send_data.setMatrix(capnp::Data::Reader(
+        reinterpret_cast<const capnp::byte*>(&(*matrix_.data().begin())),
+        matrix_.data().size() * sizeof(double)));
+    auto buf = AppendHeader(message);
+    for (const auto& node : nodes) {
+      auto nid = ebbrt::Messenger::NetworkId(std::string(
+          reinterpret_cast<const char*>(node.begin()), node.size()));
+      SendMessage(id, nid, buf->Clone());
+    }
+    break;
+  }
+  case matrix::Request::Which::SEND_DATA: {
+    ebbrt::kprintf("Received Send Data\n");
+    auto send_data = request.getSendData();
+    if (send_data.getLeft()) {
+      left_data = reader.GetBuf();
+    } else {
+      right_data = reader.GetBuf();
+    }
+
+    if (left_data && right_data) {
+      auto left_reader = ebbrt::IOBufMessageReader(std::move(left_data));
+      auto left_request = left_reader.getRoot<matrix::Request>();
+      auto left_send_data = left_request.getSendData();
+      auto left_mat_data =
+          reinterpret_cast<const double*>(left_send_data.getMatrix().begin());
+      boost::numeric::ublas::unbounded_array<double> left_a(x_tile_ * y_tile_);
+      for (auto& d : left_a) {
+        d = *left_mat_data++;
+      }
+      boost::numeric::ublas::matrix<double> left_mat(x_tile_, y_tile_, left_a);
+      auto right_reader = ebbrt::IOBufMessageReader(std::move(right_data));
+      auto right_request = right_reader.getRoot<matrix::Request>();
+      auto right_send_data = right_request.getSendData();
+      auto right_mat_data =
+          reinterpret_cast<const double*>(right_send_data.getMatrix().begin());
+      boost::numeric::ublas::unbounded_array<double> right_a(x_tile_ * y_tile_);
+      for (auto& d : right_a) {
+        d = *right_mat_data++;
+      }
+      boost::numeric::ublas::matrix<double> right_mat(x_tile_, y_tile_,
+                                                      right_a);
+      boost::numeric::ublas::opb_prod(left_mat, right_mat, matrix_, false);
+      ebbrt::IOBufMessageBuilder message;
+      auto builder = message.initRoot<matrix::Reply>();
+      builder.initMultiplyReply();
+      SendMessage(frontend_id_, AppendHeader(message));
+    }
+    break;
+  }
   }
 }
