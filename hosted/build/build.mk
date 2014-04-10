@@ -40,9 +40,9 @@ CAPNP_SRCS := Messages.capnp
 CAPNP_OBJECTS := $(CAPNP_SRCS:.capnp=.capnp.o)
 CAPNP_H := $(CAPNP_SRCS:.capnp=.capnp.h)
 
-#ebb_matrix.o \
 
 OBJ := \
+	ebb_matrix.o \
 	ebb_matrix_helper.o \
 	Matrix.o \
 	Messages.capnp.o
