@@ -9,7 +9,7 @@
 
 int main() {
   activate_context();
-  auto f = Matrix::Create(5, 5, 5, 5);
+  auto f = Matrix::Create(10, 10, 5, 5);
   auto m = wait_for_future<ebbrt::EbbRef<Matrix>>(&f);
   deactivate_context();
 
@@ -21,7 +21,7 @@ int main() {
   
 
   activate_context();
-  auto f2 = Matrix::Create(5, 5, 5, 5);
+  auto f2 = Matrix::Create(10, 10, 5, 5);
   auto m2 = wait_for_future<ebbrt::EbbRef<Matrix>>(&f2);
   deactivate_context();
 

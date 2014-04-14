@@ -17,6 +17,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   ebbrt::Future<double> Get(size_t x, size_t y);
   ebbrt::Future<void> Set(size_t x, size_t y, double val);
   ebbrt::Future<ebbrt::EbbRef<Matrix>> Multiply(ebbrt::EbbRef<Matrix> matrix);
+  ebbrt::Future<void> Randomize();
 
  private:
   ebbrt::SharedFuture<ebbrt::Messenger::NetworkId>& GetNode(size_t nid);
@@ -27,10 +28,9 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   ebbrt::Future<void> MultiplyInternal(ebbrt::EbbRef<Matrix> a,
                                        ebbrt::EbbRef<Matrix> b);
   ebbrt::Future<std::vector<ebbrt::Messenger::NetworkId>> GetNodes();
-  void MultiplyRound(size_t k);
-  size_t TilesPerRow();
-  size_t TilesPerCol();
-  size_t Tiles();
+  size_t TilesPerRow() const;
+  size_t TilesPerCol() const;
+  size_t Tiles() const;
 
   ebbrt::EbbId my_id_;
   size_t x_dim_;
@@ -41,6 +41,8 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   node_map_;
   std::unordered_map<uint32_t, ebbrt::Promise<double>> get_map_;
   std::unordered_map<uint32_t, ebbrt::Promise<void>> set_map_;
+  std::unordered_map<uint32_t, std::pair<ebbrt::Promise<void>, size_t>>
+  randomize_map_;
   std::mutex lock_;
   uint32_t message_id_;
   ebbrt::EventManager::EventContext* multiply_activate_{nullptr};

@@ -14,6 +14,7 @@
 #include <ebbrt/EbbAllocator.h>
 #include <ebbrt/GlobalIdMap.h>
 #include <ebbrt/LocalIdMap.h>
+#include <ebbrt/Random.h>
 
 #include "Messages.capnp.h"
 
@@ -122,7 +123,21 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     SendMessage(nid, AppendHeader(message));
     break;
   }
-  case matrix::Request::Which::RANDOMIZE_REQUEST: { break; }
+  case matrix::Request::Which::RANDOMIZE_REQUEST: {
+    auto randomize_request = request.getRandomizeRequest();
+    auto id = randomize_request.getId();
+    std::default_random_engine generator(ebbrt::random::Get());
+    std::uniform_real_distribution<double> distribution(-1, 1);
+    for (auto& d : matrix_.data()) {
+      d = distribution(generator);
+    }
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto randomize_builder = builder.initRandomizeReply();
+    randomize_builder.setId(id);
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
   case matrix::Request::Which::SEND_DATA_REQUEST: {
     ebbrt::kprintf("Received Send Request\n");
     auto send_request = request.getSendDataRequest();

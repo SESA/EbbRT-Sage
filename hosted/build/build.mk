@@ -30,7 +30,7 @@ INCLUDES := \
 	-I $(ebbrt_commoninc) \
 	-I $(SAGE_ROOT)/local/include/python2.7
 
-CXXFLAGS := -fpic -std=c++11 $(INCLUDES) $(OPTFLAGS)
+CXXFLAGS := -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS)
 
 ebbrt_libdir := $(MYDIR)lib
 

@@ -20,6 +20,7 @@ cdef extern from "Matrix.h":
           Future[double] Get(size_t, size_t)
           Future[void] Set(size_t, size_t, double)
           Future[EbbRef[Matrix]] Multiply(EbbRef[Matrix])
+          Future[void] Randomize()
 
 cdef extern from "Matrix.h" namespace "Matrix":
      Future[EbbRef[Matrix]] Create(size_t, size_t, size_t, size_t)
@@ -69,3 +70,10 @@ cdef class EbbMatrix:
          matrix = wait_for_future_ebbref_matrix(&fut)
          deactivate_context()
          return EbbMatrix().setMatrix(matrix)
+     def randomize(self):
+         cdef EbbMatrix e = self
+         activate_context()
+         cdef Matrix* ref = e.matrix.GetPointer()
+         cdef Future[void] fut = ref.Randomize()
+         wait_for_future_void(&fut)
+         deactivate_context()

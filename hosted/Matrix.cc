@@ -143,6 +143,29 @@ ebbrt::Future<void> Matrix::Set(size_t x, size_t y, double val) {
   });
 }
 
+ebbrt::Future<void> Matrix::Randomize() {
+  lock_.lock();
+  auto v = message_id_++;
+  auto& p = randomize_map_[v];
+  lock_.unlock();
+  p.second = Tiles();
+  ebbrt::IOBufMessageBuilder message;
+  auto builder = message.initRoot<matrix::Request>();
+  auto randomize_builder = builder.initRandomizeRequest();
+  randomize_builder.setId(v);
+  auto buf = ebbrt::AppendHeader(message);
+  for (size_t i = 0; i < Tiles(); ++i) {
+    GetNode(i).Then(
+        MoveBind([this](std::unique_ptr<ebbrt::IOBuf> m,
+                        ebbrt::SharedFuture<ebbrt::Messenger::NetworkId> fut) {
+                   auto nid = fut.Get();
+                   SendMessage(nid, std::move(m));
+                 },
+                 buf->Clone()));
+  }
+  return p.first.GetFuture();
+}
+
 ebbrt::Future<ebbrt::EbbRef<Matrix>>
 Matrix::Multiply(ebbrt::EbbRef<Matrix> matrix) {
   if (y_dim_ != matrix->x_dim_)
@@ -216,7 +239,19 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     set_map_.erase(it);
     break;
   }
-  case matrix::Reply::Which::RANDOMIZE_REPLY: { break; }
+  case matrix::Reply::Which::RANDOMIZE_REPLY: {
+    auto randomize_reply = reply.getRandomizeReply();
+    auto id = randomize_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = randomize_map_.find(id);
+    assert(it != randomize_map_.end());
+    auto v = --it->second.second;
+    if (v == 0) {
+      it->second.first.SetValue();
+      randomize_map_.erase(it);
+    }
+    break;
+  }
   case matrix::Reply::Which::MULTIPLY_REPLY: {
     auto v = multiply_completes.fetch_sub(1);
     if (v == 1)
@@ -243,9 +278,9 @@ ebbrt::Future<void> Matrix::MultiplyInternal(ebbrt::EbbRef<Matrix> a,
     auto n_rounds = a->TilesPerRow();
     ebbrt::EventManager::EventContext context;
     multiply_activate_ = &context;
-    for (auto i = 0; i < n_rounds; ++i) {
+    for (size_t i = 0; i < n_rounds; ++i) {
       multiply_completes = Tiles();
-      for (auto j = 0; j < a->TilesPerCol(); ++j) {
+      for (size_t j = 0; j < a->TilesPerCol(); ++j) {
         ebbrt::IOBufMessageBuilder message;
         auto builder = message.initRoot<matrix::Request>();
         auto send_builder = builder.initSendDataRequest();
@@ -254,7 +289,7 @@ ebbrt::Future<void> Matrix::MultiplyInternal(ebbrt::EbbRef<Matrix> a,
         send_builder.setId(my_id_);
         send_builder.setLeft(true);
         auto node_builder = send_builder.initNodes(TilesPerRow());
-        for (auto k = 0; k < TilesPerRow(); ++k) {
+        for (size_t k = 0; k < TilesPerRow(); ++k) {
           auto netaddr = v[2][k * TilesPerCol() + j].ToBytes();
           node_builder.set(
               k, capnp::Data::Reader(
@@ -264,7 +299,7 @@ ebbrt::Future<void> Matrix::MultiplyInternal(ebbrt::EbbRef<Matrix> a,
         SendMessage(a->my_id_, v[0][i * a->TilesPerCol() + j],
                     ebbrt::AppendHeader(message));
       }
-      for (auto j = 0; j < b->TilesPerRow(); ++j) {
+      for (size_t j = 0; j < b->TilesPerRow(); ++j) {
         ebbrt::IOBufMessageBuilder message;
         auto builder = message.initRoot<matrix::Request>();
         auto send_builder = builder.initSendDataRequest();
@@ -273,7 +308,7 @@ ebbrt::Future<void> Matrix::MultiplyInternal(ebbrt::EbbRef<Matrix> a,
         send_builder.setId(my_id_);
         send_builder.setLeft(false);
         auto node_builder = send_builder.initNodes(TilesPerCol());
-        for (auto k = 0; k < TilesPerCol(); ++k) {
+        for (size_t k = 0; k < TilesPerCol(); ++k) {
           auto netaddr = v[2][j * TilesPerCol() + k].ToBytes();
           node_builder.set(
               k, capnp::Data::Reader(
@@ -298,6 +333,6 @@ ebbrt::Future<std::vector<ebbrt::Messenger::NetworkId>> Matrix::GetNodes() {
   return WhenAll(v.begin(), v.end());
 }
 
-size_t Matrix::TilesPerRow() { return 1 + ((y_dim_ - 1) / y_tile_); }
-size_t Matrix::TilesPerCol() { return 1 + ((x_dim_ - 1) / x_tile_); }
-size_t Matrix::Tiles() { return TilesPerRow() * TilesPerCol(); }
+size_t Matrix::TilesPerRow() const { return 1 + ((y_dim_ - 1) / y_tile_); }
+size_t Matrix::TilesPerCol() const { return 1 + ((x_dim_ - 1) / x_tile_); }
+size_t Matrix::Tiles() const { return TilesPerRow() * TilesPerCol(); }
