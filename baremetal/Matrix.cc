@@ -64,6 +64,7 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   ebbrt::LocalIdMap::ConstAccessor accessor;
   auto found = ebbrt::local_id_map->Find(accessor, id);
   assert(found);
+  (void)found;  // unused variable
   auto& m = *boost::any_cast<Matrix*>(accessor->second);
   ebbrt::EbbRef<Matrix>::CacheRef(id, m);
   return m;
@@ -139,7 +140,6 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     break;
   }
   case matrix::Request::Which::SEND_DATA_REQUEST: {
-    ebbrt::kprintf("Received Send Request\n");
     auto send_request = request.getSendDataRequest();
     auto row = send_request.getRow();
     auto col = send_request.getCol();
@@ -161,10 +161,10 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
           reinterpret_cast<const char*>(node.begin()), node.size()));
       SendMessage(id, nid, buf->Clone());
     }
+    //SendMessage(frontend_id_, std::move(buf));
     break;
   }
   case matrix::Request::Which::SEND_DATA: {
-    ebbrt::kprintf("Received Send Data\n");
     auto send_data = request.getSendData();
     if (send_data.getLeft()) {
       left_data = reader.GetBuf();
