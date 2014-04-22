@@ -20,6 +20,10 @@ struct RandomizeRequest {
   id @0 :UInt32;
 }
 
+struct SumRequest {
+  id @0 :UInt32;
+}
+
 struct SendDataRequest {
   row @0 :UInt32;
   col @1 :UInt32;
@@ -49,6 +53,11 @@ struct RandomizeReply {
   id @0 :UInt32;
 }
 
+struct SumReply {
+  id @0 :UInt32;
+  val @1 :Float64;
+}
+
 struct MultiplyReply {
   v @0 :Void;
 }
@@ -60,6 +69,7 @@ struct Request {
     randomizeRequest @2 :RandomizeRequest;
     sendDataRequest @3 :SendDataRequest;
     sendData @4 :SendData;
+    sumRequest @5 :SumRequest;
   }
 }
 
@@ -69,6 +79,7 @@ struct Reply {
     setReply @1 :SetReply;
     randomizeReply @2 :RandomizeReply;
     multiplyReply @3 :MultiplyReply;
+    sumReply @4 :SumReply;
   }
 }
 

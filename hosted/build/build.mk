@@ -44,6 +44,7 @@ CAPNP_H := $(CAPNP_SRCS:.capnp=.capnp.h)
 OBJ := \
 	ebb_matrix.o \
 	ebb_matrix_helper.o \
+	LocalMatrix.o \
 	Matrix.o \
 	Messages.capnp.o
 

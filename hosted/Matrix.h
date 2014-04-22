@@ -5,6 +5,8 @@
 #ifndef MATRIX_H_
 #define MATRIX_H_
 
+#include <forward_list>
+
 #include <ebbrt/Message.h>
 
 class Matrix : public ebbrt::Messagable<Matrix> {
@@ -18,6 +20,9 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   ebbrt::Future<void> Set(size_t x, size_t y, double val);
   ebbrt::Future<ebbrt::EbbRef<Matrix>> Multiply(ebbrt::EbbRef<Matrix> matrix);
   ebbrt::Future<void> Randomize();
+  ebbrt::Future<double> Sum();
+  ebbrt::Future<void> AllocNodes();
+  void Destroy();
 
  private:
   ebbrt::SharedFuture<ebbrt::Messenger::NetworkId>& GetNode(size_t nid);
@@ -43,6 +48,9 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   std::unordered_map<uint32_t, ebbrt::Promise<void>> set_map_;
   std::unordered_map<uint32_t, std::pair<ebbrt::Promise<void>, size_t>>
   randomize_map_;
+  std::unordered_map<
+      uint32_t, std::tuple<ebbrt::Promise<double>, size_t, size_t>> sum_map_;
+  std::forward_list<uint16_t> nodes_;
   std::mutex lock_;
   uint32_t message_id_;
   ebbrt::EventManager::EventContext* multiply_activate_{nullptr};

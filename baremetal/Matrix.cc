@@ -24,7 +24,8 @@ Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
                size_t y_tile, ebbrt::Messenger::NetworkId frontend_id)
     : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
       x_tile_(x_tile), y_tile_(y_tile),
-      matrix_(boost::numeric::ublas::zero_matrix<double>(x_tile, y_tile)),
+      matrix_(boost::numeric::ublas::zero_matrix<double>(
+          std::min(x_tile, x_dim), std::min(y_tile, y_dim))),
       frontend_id_(frontend_id) {}
 
 Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
@@ -161,7 +162,7 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
           reinterpret_cast<const char*>(node.begin()), node.size()));
       SendMessage(id, nid, buf->Clone());
     }
-    //SendMessage(frontend_id_, std::move(buf));
+    // SendMessage(frontend_id_, std::move(buf));
     break;
   }
   case matrix::Request::Which::SEND_DATA: {
@@ -200,6 +201,21 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
       builder.initMultiplyReply();
       SendMessage(frontend_id_, AppendHeader(message));
     }
+    break;
+  }
+  case matrix::Request::Which::SUM_REQUEST: {
+    auto sum_request = request.getSumRequest();
+    auto id = sum_request.getId();
+    double v = 0;
+    for (auto& d : matrix_.data()) {
+      v += d;
+    }
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto sum_builder = builder.initSumReply();
+    sum_builder.setId(id);
+    sum_builder.setVal(v);
+    SendMessage(nid, AppendHeader(message));
     break;
   }
   }

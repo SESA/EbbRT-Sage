@@ -166,6 +166,40 @@ ebbrt::Future<void> Matrix::Randomize() {
   return p.first.GetFuture();
 }
 
+ebbrt::Future<double> Matrix::Sum() {
+  lock_.lock();
+  auto v = message_id_++;
+  auto& p = sum_map_[v];
+  lock_.unlock();
+  std::get<1>(p) = Tiles();
+  ebbrt::IOBufMessageBuilder message;
+  auto builder = message.initRoot<matrix::Request>();
+  auto sum_builder = builder.initSumRequest();
+  sum_builder.setId(v);
+  auto buf = ebbrt::AppendHeader(message);
+  for (size_t i = 0; i < Tiles(); ++i) {
+    GetNode(i).Then(
+        MoveBind([this](std::unique_ptr<ebbrt::IOBuf> m,
+                        ebbrt::SharedFuture<ebbrt::Messenger::NetworkId> fut) {
+                   auto nid = fut.Get();
+                   SendMessage(nid, std::move(m));
+                 },
+                 buf->Clone()));
+  }
+  return std::get<0>(p).GetFuture();
+}
+
+void Matrix::Destroy() {
+  for (auto& n : nodes_) {
+    ebbrt::node_allocator->FreeNode(n);
+  }
+}
+
+ebbrt::Future<void> Matrix::AllocNodes() {
+  return GetNodes().Then([](
+      ebbrt::Future<std::vector<ebbrt::Messenger::NetworkId>> f) { f.Get(); });
+}
+
 ebbrt::Future<ebbrt::EbbRef<Matrix>>
 Matrix::Multiply(ebbrt::EbbRef<Matrix> matrix) {
   if (y_dim_ != matrix->x_dim_)
@@ -199,8 +233,9 @@ ebbrt::SharedFuture<ebbrt::Messenger::NetworkId>& Matrix::GetNode(size_t nid) {
   if (!pname)
     throw std::runtime_error("EBB_MATRIX_BM_PATH environment variable not set");
 
-  auto f = ebbrt::node_allocator->AllocateNode(pname);
-  auto p = node_map_.emplace(nid, f.Share());
+  auto node_desc = ebbrt::node_allocator->AllocateNode(pname);
+  nodes_.emplace_front(node_desc.NodeId());
+  auto p = node_map_.emplace(nid, node_desc.NetworkId().Share());
   return p.first->second;
 }
 
@@ -249,6 +284,20 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     if (v == 0) {
       it->second.first.SetValue();
       randomize_map_.erase(it);
+    }
+    break;
+  }
+  case matrix::Reply::Which::SUM_REPLY: {
+    auto sum_reply = reply.getSumReply();
+    auto id = sum_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = sum_map_.find(id);
+    assert(it != sum_map_.end());
+    auto v = --std::get<1>(it->second);
+    std::get<2>(it->second) += sum_reply.getVal();
+    if (v == 0) {
+      std::get<0>(it->second).SetValue(std::get<2>(it->second));
+      sum_map_.erase(it);
     }
     break;
   }
