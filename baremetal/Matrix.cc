@@ -22,9 +22,18 @@
 
 EBBRT_PUBLISH_TYPE(, Matrix);
 
-void AppStart(){
-  ebbrt::kprintf("App Started\n");
+void AppMain(){
+  auto id = ebbrt::ebb_allocator->AllocateLocal();
+  auto mc = ebbrt::EbbRef<Matrix>(id);
+  auto nid = ebbrt::Messenger::NetworkId("0000");
+  // try to construct
+  auto p = new Matrix(id, 100,100,100,100,nid);
+  auto inserted = ebbrt::local_id_map->Insert(std::make_pair(id, p));
+  if (inserted) {
+    ebbrt::EbbRef<Matrix>::CacheRef(id, *p);
+  }
 
+  mc->DoRandom();
 }
 
 Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
@@ -107,6 +116,7 @@ void Matrix::DoRandom(){
     for (auto& d : matrix_.data()) {
       d = distribution(generator);
     }
+    ebbrt::kprintf("Done Random!\n");
 }
 
 double Matrix::DoSum() {
