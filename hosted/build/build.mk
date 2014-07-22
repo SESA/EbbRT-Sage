@@ -65,10 +65,11 @@ test: $(TESTOBJ) test.o $(ebbrt_lib)
 	-o test test.o $(TESTOBJ) -lc -lEbbRT -lboost_coroutine -lboost_context \
 	-lboost_filesystem -lboost_system -lcapnp -lkj -lfdt -ltbb -pthread
 
-Matrix.be.o: Matrix.cc
+
+Matrix.be.o: Matrix.cc  Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
-backend.o: backend.cc
+backend.o:  backend.cc Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
 backend: backend.o Matrix.be.o Messages.capnp.o $(ebbrt_lib)

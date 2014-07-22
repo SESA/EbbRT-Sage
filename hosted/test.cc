@@ -4,7 +4,7 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 #include <iostream>
 
-#include "Matrix.h"
+#include "../Matrix.h"
 #include "ebb_matrix_helper.h"
 
 int main() {
@@ -27,7 +27,8 @@ int main() {
 
   activate_context();
   auto f3 = m->Multiply(m2);
-  auto m3 = wait_for_future<ebbrt::EbbRef<Matrix>>(&f3);
+  wait_for_future<ebbrt::EbbRef<Matrix>>(&f3);
+
   deactivate_context();
   return 0;
 }

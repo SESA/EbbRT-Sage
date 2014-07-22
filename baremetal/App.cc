@@ -5,6 +5,8 @@
 
 #include <ebbrt/Debug.h>
 #include <ebbrt/EbbAllocator.h>
+#include <ebbrt/Acpi.h>
+
 #include "../Matrix.h"
 
 void AppMain() 
@@ -26,7 +28,8 @@ void AppMain()
   ebbrt::kprintf("3: Sum: %f\n", m->LocalTileSum());
 
   ebbrt::kprintf("Standalone Matrix App: END");
-  
+
+  ebbrt::acpi::PowerOff();
 }
 
 
