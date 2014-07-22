@@ -21,6 +21,8 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   Create(size_t x_dim, size_t y_dim, size_t x_tile, size_t y_tile);
   // ebbrt::Future<double> Get(size_t x, size_t y);
   // ebbrt::Future<void> Get(size_t x, size_t y);
+  double DoSum();
+  void DoRandom();
 
  private:
   ebbrt::SharedFuture<ebbrt::Messenger::NetworkId>& GetNode(size_t nid);

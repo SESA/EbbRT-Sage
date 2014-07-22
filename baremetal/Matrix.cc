@@ -22,6 +22,11 @@
 
 EBBRT_PUBLISH_TYPE(, Matrix);
 
+void AppStart(){
+  ebbrt::kprintf("App Started\n");
+
+}
+
 Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
                size_t y_tile, ebbrt::Messenger::NetworkId frontend_id)
     : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
@@ -96,6 +101,23 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
 //   return GetNode(index)
 // }
 
+void Matrix::DoRandom(){
+    std::default_random_engine generator(ebbrt::random::Get());
+    std::uniform_real_distribution<double> distribution(-1, 1);
+    for (auto& d : matrix_.data()) {
+      d = distribution(generator);
+    }
+}
+
+double Matrix::DoSum() {
+
+  double v = 0;
+  for (auto& d : matrix_.data()) {
+    v += d;
+  }
+  return v;
+}
+
 void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
                             std::unique_ptr<ebbrt::IOBuf>&& buffer) {
   auto reader = ebbrt::IOBufMessageReader(std::move(buffer));
@@ -130,11 +152,7 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
   case matrix::Request::Which::RANDOMIZE_REQUEST: {
     auto randomize_request = request.getRandomizeRequest();
     auto id = randomize_request.getId();
-    std::default_random_engine generator(ebbrt::random::Get());
-    std::uniform_real_distribution<double> distribution(-1, 1);
-    for (auto& d : matrix_.data()) {
-      d = distribution(generator);
-    }
+    DoRandom();
     ebbrt::IOBufMessageBuilder message;
     auto builder = message.initRoot<matrix::Reply>();
     auto randomize_builder = builder.initRandomizeReply();
@@ -206,24 +224,14 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     break;
   }
   case matrix::Request::Which::TEST_REQUEST: {
-    // random + sum
-    std::default_random_engine generator(ebbrt::random::Get());
-    std::uniform_real_distribution<double> distribution(-1, 1);
-    double v = 0;
-    for (auto& d : matrix_.data()) {
-      d = distribution(generator);
-      v += d;
-    }
-    // terminate
+    DoRandom();
+    DoSum();
     ebbrt::acpi::PowerOff();
   }
   case matrix::Request::Which::SUM_REQUEST: {
     auto sum_request = request.getSumRequest();
     auto id = sum_request.getId();
-    double v = 0;
-    for (auto& d : matrix_.data()) {
-      v += d;
-    }
+    double v = DoSum();
     ebbrt::IOBufMessageBuilder message;
     auto builder = message.initRoot<matrix::Reply>();
     auto sum_builder = builder.initSumReply();
