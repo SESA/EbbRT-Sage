@@ -15,7 +15,7 @@ cdef extern from "ebbrt/Future.h" namespace "ebbrt":
      cdef cppclass Future[T]:
           pass
 
-cdef extern from "Matrix.h":
+cdef extern from "../Matrix.h":
      cdef cppclass Matrix:
           Future[double] Get(size_t, size_t)
           Future[void] Set(size_t, size_t, double)
@@ -30,7 +30,7 @@ cdef extern from "LocalMatrix.h":
           Future[void] Randomize()
           void Destroy()
 
-cdef extern from "Matrix.h" namespace "Matrix":
+cdef extern from "../Matrix.h" namespace "Matrix":
      Future[EbbRef[Matrix]] Create(size_t, size_t, size_t, size_t)
 
 cdef extern from "LocalMatrix.h" namespace "LocalMatrix":

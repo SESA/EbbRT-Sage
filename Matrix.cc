@@ -2,24 +2,57 @@
 // Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
-#include "Matrix.h"
+#include "../Matrix.h"
 
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-local-typedefs"
+#include <boost/numeric/ublas/operation.hpp>
+#pragma GCC diagnostic pop
 #include <capnp/serialize.h>
 
 #include <ebbrt/CapnpMessage.h>
 #include <ebbrt/EbbAllocator.h>
 #include <ebbrt/GlobalIdMap.h>
 #include <ebbrt/LocalIdMap.h>
-#include <ebbrt/NodeAllocator.h>
+#include <ebbrt/Random.h>
 
 #include "Messages.capnp.h"
 
 EBBRT_PUBLISH_TYPE(, Matrix);
 
 Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
-               size_t y_tile)
-    : ebbrt::Messagable<Matrix>(id), my_id_(id), x_dim_(x_dim), y_dim_(y_dim),
-      x_tile_(x_tile), y_tile_(y_tile), message_id_(0) {}
+               size_t y_tile, ebbrt::Messenger::NetworkId frontend_id)
+    : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
+      x_tile_(x_tile), y_tile_(y_tile),
+      matrix_(boost::numeric::ublas::zero_matrix<double>(
+          std::min(x_tile, x_dim), std::min(y_tile, y_dim))),
+      frontend_id_(frontend_id) {}
+
+
+Matrix& Matrix::LocalTileCreate(ebbrt::EbbId id, 
+				size_t x_dim, size_t y_dim, size_t x_tile,
+				size_t y_tile, 
+				ebbrt::Messenger::NetworkId frontend_id)
+{
+  // try to construct
+  auto p = new Matrix(id, x_dim, y_dim, x_tile,y_tile, frontend_id);
+
+  auto inserted = ebbrt::local_id_map->Insert(std::make_pair(id, p));
+  if (inserted) {
+    ebbrt::EbbRef<Matrix>::CacheRef(id, *p);
+    return *p;
+  }
+  // raced, delete the new matrix
+  delete p;
+  ebbrt::LocalIdMap::ConstAccessor accessor;
+  auto found = ebbrt::local_id_map->Find(accessor, id);
+  assert(found);
+  (void)found;  // unused variable
+  auto& m = *boost::any_cast<Matrix*>(accessor->second);
+  ebbrt::EbbRef<Matrix>::CacheRef(id, m);
+  return m;
+}
 
 Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   {
@@ -40,25 +73,246 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
   auto reader = capnp::FlatArrayMessageReader(aptr);
   auto data = reader.getRoot<matrix::GlobalData>();
 
+  const auto& net_addr = data.getNetworkAddress();
+  auto nid = ebbrt::Messenger::NetworkId(std::string(
+      reinterpret_cast<const char*>(net_addr.begin()), net_addr.size()));
   // try to construct
-  auto p = new Matrix(id, data.getXDim(), data.getYDim(), data.getXTile(),
-                      data.getYTile());
-
-  auto inserted = ebbrt::local_id_map->Insert(std::make_pair(id, p));
-  if (inserted) {
-    ebbrt::EbbRef<Matrix>::CacheRef(id, *p);
-    return *p;
-  }
-
-  // raced, delete the new matrix
-  delete p;
-  ebbrt::LocalIdMap::ConstAccessor accessor;
-  auto found = ebbrt::local_id_map->Find(accessor, id);
-  assert(found);
-  auto& m = *boost::any_cast<Matrix*>(accessor->second);
-  ebbrt::EbbRef<Matrix>::CacheRef(id, m);
-  return m;
+  return Matrix::LocalTileCreate(id, data.getXDim(), data.getYDim(),
+				 data.getXTile(), data.getYTile(), nid);
 }
+
+
+double Matrix::LocalTileGet(size_t x, size_t y)
+{
+  return matrix_(x, y);
+}
+
+
+void  Matrix::LocalTileSet(size_t x, size_t y, double val) 
+{
+  matrix_(x, y) = val;
+}
+
+void Matrix::LocalTileRandomize()
+{
+  std::default_random_engine generator(ebbrt::random::Get());
+  std::uniform_real_distribution<double> distribution(-1, 1);
+  for (auto& d : matrix_.data()) {
+    d = distribution(generator);
+  }
+}
+
+double Matrix::LocalTileSum() 
+{
+  double v = 0;
+  for (auto& d : matrix_.data()) {
+    v += d;
+  }
+  return v;
+}
+
+#if 0
+ebbrt::EbbRef<Matrix> LocalTileMultiply(ebbrt::EbbRef<Matrix> matrix)
+{
+}
+#endif
+
+
+void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
+                            std::unique_ptr<ebbrt::IOBuf>&& buffer) {
+  auto reader = ebbrt::IOBufMessageReader(std::move(buffer));
+#ifdef __FRONTEND__
+  auto reply = reader.getRoot<matrix::Reply>();
+  switch (reply.which()) {
+  case matrix::Reply::Which::GET_REPLY: {
+    auto get_reply = reply.getGetReply();
+    auto id = get_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = get_map_.find(id);
+    assert(it != get_map_.end());
+      it->second.SetValue(get_reply.getVal());
+      get_map_.erase(it);
+    break;
+  }
+  case matrix::Reply::Which::SET_REPLY: {
+    auto set_reply = reply.getSetReply();
+    auto id = set_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = set_map_.find(id);
+    assert(it != set_map_.end());
+    it->second.SetValue();
+    set_map_.erase(it);
+    break;
+  }
+  case matrix::Reply::Which::RANDOMIZE_REPLY: {
+    auto randomize_reply = reply.getRandomizeReply();
+    auto id = randomize_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = randomize_map_.find(id);
+    assert(it != randomize_map_.end());
+    auto v = --it->second.second;
+    if (v == 0) {
+      it->second.first.SetValue();
+      randomize_map_.erase(it);
+    }
+    break;
+  }
+  case matrix::Reply::Which::SUM_REPLY: {
+    auto sum_reply = reply.getSumReply();
+    auto id = sum_reply.getId();
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = sum_map_.find(id);
+    assert(it != sum_map_.end());
+    auto v = --std::get<1>(it->second);
+    std::get<2>(it->second) += sum_reply.getVal();
+    if (v == 0) {
+      std::get<0>(it->second).SetValue(std::get<2>(it->second));
+      sum_map_.erase(it);
+    }
+    break;
+  }
+  case matrix::Reply::Which::MULTIPLY_REPLY: {
+    auto v = multiply_completes.fetch_sub(1);
+    if (v == 1)
+      ebbrt::event_manager->ActivateContext(std::move(*multiply_activate_));
+    break;
+  }
+  }
+#else 
+  auto request = reader.getRoot<matrix::Request>();
+  switch (request.which()) {
+  case matrix::Request::Which::GET_REQUEST: {
+    auto get_request = request.getGetRequest();
+    auto id = get_request.getId();
+    auto x = get_request.getX() % x_tile_;
+    auto y = get_request.getY() % y_tile_;
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto get_builder = builder.initGetReply();
+    get_builder.setId(id);
+
+    get_builder.setVal(LocalTileGet(x,y));
+
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
+  case matrix::Request::Which::SET_REQUEST: {
+    auto set_request = request.getSetRequest();
+    auto id = set_request.getId();
+    auto x = set_request.getX() % x_tile_;
+    auto y = set_request.getY() % y_tile_;
+
+    LocalTileSet(x,y,set_request.getVal());
+
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto set_builder = builder.initSetReply();
+    set_builder.setId(id);
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
+  case matrix::Request::Which::RANDOMIZE_REQUEST: {
+    auto randomize_request = request.getRandomizeRequest();
+    auto id = randomize_request.getId();
+
+    LocalTileRandomize();
+
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto randomize_builder = builder.initRandomizeReply();
+    randomize_builder.setId(id);
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
+  case matrix::Request::Which::SEND_DATA_REQUEST: {
+    auto send_request = request.getSendDataRequest();
+    auto row = send_request.getRow();
+    auto col = send_request.getCol();
+    auto id = send_request.getId();
+    auto left = send_request.getLeft();
+    auto nodes = send_request.getNodes();
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Request>();
+    auto send_data = builder.initSendData();
+    send_data.setRow(row);
+    send_data.setCol(col);
+    send_data.setLeft(left);
+    send_data.setMatrix(capnp::Data::Reader(
+        reinterpret_cast<const capnp::byte*>(&(*matrix_.data().begin())),
+        matrix_.data().size() * sizeof(double)));
+    auto buf = AppendHeader(message);
+    for (const auto& node : nodes) {
+      auto nid = ebbrt::Messenger::NetworkId(std::string(
+          reinterpret_cast<const char*>(node.begin()), node.size()));
+      SendMessage(id, nid, buf->Clone());
+    }
+    // SendMessage(frontend_id_, std::move(buf));
+    break;
+  }
+  case matrix::Request::Which::SEND_DATA: {
+    auto send_data = request.getSendData();
+    if (send_data.getLeft()) {
+      left_data = reader.GetBuf();
+    } else {
+      right_data = reader.GetBuf();
+    }
+
+    if (left_data && right_data) {
+      auto left_reader = ebbrt::IOBufMessageReader(std::move(left_data));
+      auto left_request = left_reader.getRoot<matrix::Request>();
+      auto left_send_data = left_request.getSendData();
+      auto left_mat_data =
+          reinterpret_cast<const double*>(left_send_data.getMatrix().begin());
+      boost::numeric::ublas::unbounded_array<double> left_a(x_tile_ * y_tile_);
+      for (auto& d : left_a) {
+        d = *left_mat_data++;
+      }
+      boost::numeric::ublas::matrix<double> left_mat(x_tile_, y_tile_, left_a);
+      auto right_reader = ebbrt::IOBufMessageReader(std::move(right_data));
+      auto right_request = right_reader.getRoot<matrix::Request>();
+      auto right_send_data = right_request.getSendData();
+      auto right_mat_data =
+          reinterpret_cast<const double*>(right_send_data.getMatrix().begin());
+      boost::numeric::ublas::unbounded_array<double> right_a(x_tile_ * y_tile_);
+      for (auto& d : right_a) {
+        d = *right_mat_data++;
+      }
+      boost::numeric::ublas::matrix<double> right_mat(x_tile_, y_tile_,
+                                                      right_a);
+      boost::numeric::ublas::opb_prod(left_mat, right_mat, matrix_, false);
+      ebbrt::IOBufMessageBuilder message;
+      auto builder = message.initRoot<matrix::Reply>();
+      builder.initMultiplyReply();
+      SendMessage(frontend_id_, AppendHeader(message));
+    }
+    break;
+  }
+  case matrix::Request::Which::SUM_REQUEST: {
+    auto sum_request = request.getSumRequest();
+    auto id = sum_request.getId();
+
+    double v = LocalTileSum();
+
+    ebbrt::IOBufMessageBuilder message;
+    auto builder = message.initRoot<matrix::Reply>();
+    auto sum_builder = builder.initSumReply();
+    sum_builder.setId(id);
+    sum_builder.setVal(v);
+    SendMessage(nid, AppendHeader(message));
+    break;
+  }
+  }
+#endif // #ifdef __FRONTEND__ #else
+}
+
+
+#ifdef __FRONTEND__
+#include <ebbrt/NodeAllocator.h>
+
+Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
+               size_t y_tile)
+    : ebbrt::Messagable<Matrix>(id), my_id_(id), x_dim_(x_dim), y_dim_(y_dim),
+      x_tile_(x_tile), y_tile_(y_tile), message_id_(0) {}
 
 namespace {
 class StringOutputStream : public kj::OutputStream {
@@ -248,68 +502,6 @@ Matrix::GetNodeByXY(size_t x, size_t y) {
   return GetNode(index);
 }
 
-void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
-                            std::unique_ptr<ebbrt::IOBuf>&& buffer) {
-  auto reader = ebbrt::IOBufMessageReader(std::move(buffer));
-  auto reply = reader.getRoot<matrix::Reply>();
-
-  switch (reply.which()) {
-  case matrix::Reply::Which::GET_REPLY: {
-    auto get_reply = reply.getGetReply();
-    auto id = get_reply.getId();
-    std::lock_guard<std::mutex> lock(lock_);
-    auto it = get_map_.find(id);
-    assert(it != get_map_.end());
-    it->second.SetValue(get_reply.getVal());
-    get_map_.erase(it);
-    break;
-  }
-  case matrix::Reply::Which::SET_REPLY: {
-    auto set_reply = reply.getSetReply();
-    auto id = set_reply.getId();
-    std::lock_guard<std::mutex> lock(lock_);
-    auto it = set_map_.find(id);
-    assert(it != set_map_.end());
-    it->second.SetValue();
-    set_map_.erase(it);
-    break;
-  }
-  case matrix::Reply::Which::RANDOMIZE_REPLY: {
-    auto randomize_reply = reply.getRandomizeReply();
-    auto id = randomize_reply.getId();
-    std::lock_guard<std::mutex> lock(lock_);
-    auto it = randomize_map_.find(id);
-    assert(it != randomize_map_.end());
-    auto v = --it->second.second;
-    if (v == 0) {
-      it->second.first.SetValue();
-      randomize_map_.erase(it);
-    }
-    break;
-  }
-  case matrix::Reply::Which::SUM_REPLY: {
-    auto sum_reply = reply.getSumReply();
-    auto id = sum_reply.getId();
-    std::lock_guard<std::mutex> lock(lock_);
-    auto it = sum_map_.find(id);
-    assert(it != sum_map_.end());
-    auto v = --std::get<1>(it->second);
-    std::get<2>(it->second) += sum_reply.getVal();
-    if (v == 0) {
-      std::get<0>(it->second).SetValue(std::get<2>(it->second));
-      sum_map_.erase(it);
-    }
-    break;
-  }
-  case matrix::Reply::Which::MULTIPLY_REPLY: {
-    auto v = multiply_completes.fetch_sub(1);
-    if (v == 1)
-      ebbrt::event_manager->ActivateContext(std::move(*multiply_activate_));
-    break;
-  }
-  }
-}
-
 ebbrt::Future<void> Matrix::MultiplyInternal(ebbrt::EbbRef<Matrix> a,
                                              ebbrt::EbbRef<Matrix> b) {
   auto f1 = a->GetNodes();
@@ -385,3 +577,4 @@ ebbrt::Future<std::vector<ebbrt::Messenger::NetworkId>> Matrix::GetNodes() {
 size_t Matrix::TilesPerRow() const { return 1 + ((y_dim_ - 1) / y_tile_); }
 size_t Matrix::TilesPerCol() const { return 1 + ((x_dim_ - 1) / x_tile_); }
 size_t Matrix::Tiles() const { return TilesPerRow() * TilesPerCol(); }
+#endif  // #ifdef __FRONTEND__

@@ -30,7 +30,7 @@ INCLUDES := \
 	-I $(ebbrt_commoninc) \
 	-I $(SAGE_ROOT)/local/include/python2.7
 
-CXXFLAGS := -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS)
+CXXFLAGS := -D__FRONTEND__ -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) 
 
 ebbrt_libdir := $(MYDIR)lib
 
@@ -40,7 +40,6 @@ CAPNP_SRCS := Messages.capnp
 CAPNP_OBJECTS := $(CAPNP_SRCS:.capnp=.capnp.o)
 CAPNP_H := $(CAPNP_SRCS:.capnp=.capnp.h)
 
-
 OBJ := \
 	ebb_matrix.o \
 	ebb_matrix_helper.o \
@@ -48,14 +47,33 @@ OBJ := \
 	Matrix.o \
 	Messages.capnp.o
 
+TESTOBJ := \
+	ebb_matrix_helper.o \
+	LocalMatrix.o \
+	Matrix.o \
+	Messages.capnp.o
+
+all: ebb_matrix.so
+
 ebb_matrix.so: $(OBJ) $(ebbrt_lib)
 	$(CXX) $(OPTFLAGS) -L $(ebbrt_libdir) -shared -Wl,-soname,ebb_matrix.so \
 	-o ebb_matrix.so $(OBJ) -lc -lEbbRT -lboost_coroutine -lboost_context \
 	-lboost_filesystem -lboost_system -lcapnp -lkj -lfdt -ltbb -pthread
 
-test: $(OBJ) test.o $(ebbrt_lib)
+test: $(TESTOBJ) test.o $(ebbrt_lib)
 	$(CXX) $(OPTFLAGS) -L $(ebbrt_libdir) \
-	-o test test.o $(OBJ) -lc -lEbbRT -lboost_coroutine -lboost_context \
+	-o test test.o $(TESTOBJ) -lc -lEbbRT -lboost_coroutine -lboost_context \
+	-lboost_filesystem -lboost_system -lcapnp -lkj -lfdt -ltbb -pthread
+
+Matrix.be.o: Matrix.cc
+	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
+
+backend.o: backend.cc
+	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
+
+backend: backend.o Matrix.be.o Messages.capnp.o $(ebbrt_lib)
+	$(CXX) $(OPTFLAGS) -L $(ebbrt_libdir) \
+	-o backend backend.o Matrix.be.o Messages.capnp.o -lc -lEbbRT -lboost_coroutine -lboost_context \
 	-lboost_filesystem -lboost_system -lcapnp -lkj -lfdt -ltbb -pthread
 
 %.o: %.cc $(CAPNP_H)
