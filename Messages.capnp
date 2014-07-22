@@ -3,6 +3,10 @@
 using Cxx = import "/capnp/c++.capnp";
 $Cxx.namespace("matrix");
 
+struct TestRequest {
+  id @0 :UInt32;
+}
+
 struct GetRequest {
   id @0 :UInt32;
   x @1 :UInt32;
@@ -70,6 +74,7 @@ struct Request {
     sendDataRequest @3 :SendDataRequest;
     sendData @4 :SendData;
     sumRequest @5 :SumRequest;
+    testRequest @6 :TestRequest;
   }
 }
 

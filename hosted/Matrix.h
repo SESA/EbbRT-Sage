@@ -20,6 +20,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   ebbrt::Future<void> Set(size_t x, size_t y, double val);
   ebbrt::Future<ebbrt::EbbRef<Matrix>> Multiply(ebbrt::EbbRef<Matrix> matrix);
   ebbrt::Future<void> Randomize();
+  void Test();
   ebbrt::Future<double> Sum();
   ebbrt::Future<void> AllocNodes();
   void Destroy();

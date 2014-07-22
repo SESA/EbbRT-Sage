@@ -10,6 +10,8 @@
 #pragma GCC diagnostic pop
 #include <capnp/serialize.h>
 
+#include <ebbrt/Acpi.h>
+#include <ebbrt/Debug.h>
 #include <ebbrt/CapnpMessage.h>
 #include <ebbrt/EbbAllocator.h>
 #include <ebbrt/GlobalIdMap.h>
@@ -203,6 +205,18 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     }
     break;
   }
+  case matrix::Request::Which::TEST_REQUEST: {
+    // random + sum
+    std::default_random_engine generator(ebbrt::random::Get());
+    std::uniform_real_distribution<double> distribution(-1, 1);
+    double v = 0;
+    for (auto& d : matrix_.data()) {
+      d = distribution(generator);
+      v += d;
+    }
+    // terminate
+    ebbrt::acpi::PowerOff();
+  }
   case matrix::Request::Which::SUM_REQUEST: {
     auto sum_request = request.getSumRequest();
     auto id = sum_request.getId();
@@ -216,6 +230,10 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     sum_builder.setId(id);
     sum_builder.setVal(v);
     SendMessage(nid, AppendHeader(message));
+    break;
+  }
+   default: {
+    ebbrt::kprintf("request not found");
     break;
   }
   }

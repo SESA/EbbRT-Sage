@@ -21,6 +21,7 @@ cdef extern from "Matrix.h":
           Future[void] Set(size_t, size_t, double)
           Future[EbbRef[Matrix]] Multiply(EbbRef[Matrix])
           Future[void] Randomize()
+          void Test()
           Future[double] Sum()
           Future[void] AllocNodes()
           void Destroy()
@@ -88,6 +89,12 @@ cdef class EbbMatrix:
          cdef Matrix* ref = e.matrix.GetPointer()
          cdef Future[void] fut = ref.Randomize()
          wait_for_future_void(&fut)
+         deactivate_context()
+     def test(self):
+         cdef EbbMatrix e = self
+         activate_context()
+         cdef Matrix* ref = e.matrix.GetPointer()
+         ref.Test()
          deactivate_context()
      def sum(self):
          cdef EbbMatrix e = self

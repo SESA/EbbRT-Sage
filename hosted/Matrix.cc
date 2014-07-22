@@ -6,6 +6,7 @@
 
 #include <capnp/serialize.h>
 
+#include <ebbrt/GlobalIdMap.h>
 #include <ebbrt/CapnpMessage.h>
 #include <ebbrt/EbbAllocator.h>
 #include <ebbrt/GlobalIdMap.h>
@@ -141,6 +142,27 @@ ebbrt::Future<void> Matrix::Set(size_t x, size_t y, double val) {
     SendMessage(nid, ebbrt::AppendHeader(message));
     return p.GetFuture();
   });
+}
+
+void Matrix::Test() {
+
+  lock_.lock();
+  auto v = message_id_++;
+  lock_.unlock();
+  ebbrt::IOBufMessageBuilder message;
+  auto builder = message.initRoot<matrix::Request>();
+  auto test_builder = builder.initTestRequest();
+  test_builder.setId(v);
+  auto buf = ebbrt::AppendHeader(message);
+  for (size_t i = 0; i < Tiles(); ++i) {
+    GetNode(i).Then(
+        MoveBind([this](std::unique_ptr<ebbrt::IOBuf> m,
+                        ebbrt::SharedFuture<ebbrt::Messenger::NetworkId> fut) {
+                   auto nid = fut.Get();
+                   SendMessage(nid, std::move(m));
+                 },
+                 buf->Clone()));
+  }
 }
 
 ebbrt::Future<void> Matrix::Randomize() {
