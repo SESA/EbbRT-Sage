@@ -3,19 +3,30 @@
 //    (See accompanying file LICENSE_1_0.txt or copy at
 //          http://www.boost.org/LICENSE_1_0.txt)
 
+#ifndef __linux__
+#include <ebbrt/Acpi.h>
+#include <ebbrt/Context.h>
+void terminate() {   ebbrt::acpi::PowerOff(); }
+#else
+#include <iostream>
+#include <memory>
 #include <ebbrt/Debug.h>
 #include <ebbrt/EbbAllocator.h>
-#include <ebbrt/Acpi.h>
+void terminate() { ebbrt::active_context->io_service_.stop(); }
+#endif
+
+
+
 
 #include "../Matrix.h"
 
 void AppMain() 
 {
-  ebbrt::kprintf("Standalone Matrix App: START\n");
+  ebbrt::kprintf("%s", "Standalone Matrix App: START\n");
   auto id = ebbrt::ebb_allocator->AllocateLocal();
 
   Matrix::LocalTileCreate(id, 10,10,10,10,
-			  ebbrt::Messenger::NetworkId((uint32_t)0x0));
+			    ebbrt::Messenger::NetworkId("0000"));
   ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
 
   ebbrt::kprintf("0: m[0,0]=%f\n", m->LocalTileGet(0,0));
@@ -27,9 +38,9 @@ void AppMain()
 
   ebbrt::kprintf("3: Sum: %f\n", m->LocalTileSum());
 
-  ebbrt::kprintf("Standalone Matrix App: END");
+  ebbrt::kprintf("%s", "Standalone Matrix App: END");
 
-  ebbrt::acpi::PowerOff();
+  terminate();
 }
 
 

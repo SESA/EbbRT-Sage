@@ -32,7 +32,7 @@ INCLUDES := \
 
 CXXFLAGS := -D__FRONTEND__ -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) 
 
-ebbrt_libdir := $(MYDIR)lib
+ebbrt_libdir := $(MYDIR)$(EBBRT_BUILDTYPE)/lib
 
 ebbrt_lib := ${ebbrt_libdir}/libEbbRT.so
 
@@ -69,12 +69,15 @@ test: $(TESTOBJ) test.o $(ebbrt_lib)
 Matrix.be.o: Matrix.cc  Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
-backend.o:  backend.cc Messages.capnp.h 
+App.o: App.cc Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
-backend: backend.o Matrix.be.o Messages.capnp.o $(ebbrt_lib)
+backend.o: backend.cc Messages.capnp.h 
+	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
+
+backend: App.o backend.o Matrix.be.o Messages.capnp.o $(ebbrt_lib)
 	$(CXX) $(OPTFLAGS) -L $(ebbrt_libdir) \
-	-o backend backend.o Matrix.be.o Messages.capnp.o -lc -lEbbRT -lboost_coroutine -lboost_context \
+	-o backend backend.o App.o Matrix.be.o Messages.capnp.o -lc -lEbbRT -lboost_coroutine -lboost_context \
 	-lboost_filesystem -lboost_system -lcapnp -lkj -lfdt -ltbb -pthread
 
 %.o: %.cc $(CAPNP_H)
