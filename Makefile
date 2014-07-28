@@ -14,3 +14,6 @@ Debug:
 standalone:
 	$(MAKE) -C baremetal/build/Release standalone
 	$(MAKE) -C baremetal/build/Debug standalone
+
+rsync:
+	rsync -avz $(PWD) moc:$USER
