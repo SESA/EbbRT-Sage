@@ -5,16 +5,16 @@
 
 #ifndef __linux__
 #include <ebbrt/Acpi.h>
-#include <ebbrt/Context.h>
 void terminate() {   ebbrt::acpi::PowerOff(); }
 #else
 #include <iostream>
 #include <memory>
-#include <ebbrt/Debug.h>
-#include <ebbrt/EbbAllocator.h>
+#include <ebbrt/Context.h>
 void terminate() { ebbrt::active_context->io_service_.stop(); }
 #endif
 
+#include <ebbrt/Debug.h>
+#include <ebbrt/EbbAllocator.h>
 
 
 

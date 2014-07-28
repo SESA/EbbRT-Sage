@@ -72,6 +72,14 @@ Matrix.be.o: Matrix.cc  Messages.capnp.h
 App.o: App.cc Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
+.PHONY: standalone
+
+standalone: backend app
+
+app: backend
+	-rm -rf app
+	../mkapp $(MYDIR)$(EBBRT_BUILDTYPE)/backend ${ebbrt_libdir}
+
 backend.o: backend.cc Messages.capnp.h 
 	$(CXX) -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) -c $< -o $@
 
@@ -109,5 +117,6 @@ distclean: clean
 clean:
 	-$(RM) $(wildcard $(OBJ) ebb_matrix.so)
 	-$(RM) -rf $(wildcard $(ebbrt_libdir))
+	-$(RM) -rf $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/app)
 
 VPATH := $(abspath $(MYDIR)..) $(abspath $(MYDIR)../..)
