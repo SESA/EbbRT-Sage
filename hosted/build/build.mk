@@ -32,6 +32,8 @@ INCLUDES := \
 
 CXXFLAGS := -D__FRONTEND__ -fpic -std=c++11 -Wall -Werror $(INCLUDES) $(OPTFLAGS) 
 
+ebb_matrix.o: CXXFLAGS += -Wno-error
+
 ebbrt_libdir := $(MYDIR)$(EBBRT_BUILDTYPE)/lib
 
 ebbrt_lib := ${ebbrt_libdir}/libEbbRT.so
