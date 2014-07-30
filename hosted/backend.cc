@@ -4,6 +4,7 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 #include <iostream>
 #include <memory>
+#include <sys/sysinfo.h>
 
 #include <ebbrt/Context.h>
 #include <ebbrt/ContextActivation.h>
@@ -16,6 +17,15 @@
 extern void AppMain() __attribute__((weak));
 
 int main() {
+
+  struct sysinfo s_info;
+  int error;
+  error = sysinfo(&s_info);
+  if (error != 0) {
+    printf("code error = %d\n", error);
+  }
+  printf("Uptime: %lu\n", (long int)s_info.uptime);
+
   printf("EbbRT-Sage:hosted/standalone-backend: START\n");
   ebbrt::Runtime runtime;
   ebbrt::Context c(runtime);
