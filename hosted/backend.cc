@@ -16,6 +16,28 @@
 
 extern void AppMain() __attribute__((weak));
 
+int
+getBootCmdline(char **cmdline)
+{
+  int fd=-1;
+
+  *cmdline = NULL;
+
+  if((fd=open("/proc/cmdline", O_RDONLY)) < -1)
+    return 0;
+ 
+  ssize_t n=0;
+  ssize_t rc=0;
+  *cmdline =  (char *)malloc(4096);
+  while ((rc=read(fd, &((*cmdline)[n]), 4096-n)>=0)) {
+    n += rc;
+    if (n==4096) break;
+  }
+  (*cmdline)[n]=0;
+
+  return 0;
+}
+
 int main() {
 
   struct sysinfo s_info;
@@ -37,6 +59,7 @@ int main() {
     sig.async_wait([&c](const boost::system::error_code& ec,
                         int signal_number) { c.io_service_.stop(); });
     if (AppMain) {
+      getBootCmdline(&ebbrt::runtime::bootcmdline);
       ebbrt::event_manager->Spawn([=]() { AppMain(); });
     }
   }

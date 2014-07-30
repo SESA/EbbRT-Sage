@@ -119,6 +119,7 @@ distclean: clean
 clean:
 	-$(RM) $(wildcard $(OBJ) ebb_matrix.so)
 	-$(RM) -rf $(wildcard $(ebbrt_libdir))
+	-$(RM) -rf $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/App.o) $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/backend.o) $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/backend)  $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/Matrix.be.o) $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/Messages.capnp.o)
 	-$(RM) -rf $(wildcard $(MYDIR)$(EBBRT_BUILDTYPE)/app)
 
 VPATH := $(abspath $(MYDIR)..) $(abspath $(MYDIR)../..)
