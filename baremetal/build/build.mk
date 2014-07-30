@@ -20,5 +20,6 @@ EBBRT_APP_VPATH := \
 	$(abspath $(MYDIR)..) \
 	$(abspath $(MYDIR)../..)
 
-EBBRT_OPTFLAGS = -iquote $(abspath $(MYDIR)..) -iquote $(abspath $(MYDIR)../..)
+EBBRT_APP_INCLUDES := -iquote $(abspath $(MYDIR)..) -iquote $(abspath $(MYDIR)../..)
+
 include $(abspath $(EBBRT_SRCDIR)/apps/ebbrtbaremetal.mk)
