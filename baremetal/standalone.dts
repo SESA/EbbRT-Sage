@@ -1,0 +1,17 @@
+/dts-v1/;  // DTS source version 1 -- required to indicate version 1 -- only version supported 
+           // by dtc
+
+/ {
+        runtime {
+	  net = [00 00];
+	  address  = <0x00>;
+	  port = [00 00];
+	  allocation_id = [00 00];
+	  eth0.ip = <0x00>;
+	  eth0.netmask = <0x00>;
+	  defaultgw = <0x00>;
+	  GlobalIdMapIP = <0x00>;
+	  GlobalIdMapPort = [00 00];
+	  EbbIDSpace =  [00 00];
+        };
+};

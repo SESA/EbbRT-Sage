@@ -39,7 +39,7 @@ void AppMain()
   ebbrt::force_kprintf("Updtime pre-work: %d\n",uptime1_ms);
 #endif
 #endif
-  ebbrt::kprintf("%s", "Standalone Matrix App: START: ")
+  ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
 
 
   int matsize = SAGE_STANDALONE_DEFAULT_MATSIZE;
@@ -47,9 +47,9 @@ void AppMain()
 
   if (ebbrt::runtime::bootcmdline) {
     char *arg = nextArg(ebbrt::runtime::bootcmdline);
-    int matsize = atoi(arg);
+    matsize = atoi(arg);
     arg = nextArg(arg);
-    int repcnt = atoi(arg);
+    repcnt = atoi(arg);
     ebbrt::kprintf(" %s: ", ebbrt::runtime::bootcmdline);
   };
 
@@ -67,6 +67,6 @@ void AppMain()
       count++;
     }
   }
-  ebbrt::kprintf("%s", "Standalone Matrix App: END.\n")
+  ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
   terminate();
 }
