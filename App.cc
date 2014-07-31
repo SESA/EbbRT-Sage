@@ -17,6 +17,9 @@ void terminate() { ebbrt::active_context->io_service_.stop(); }
 #include <ebbrt/EbbAllocator.h>
 #include "../Matrix.h"
 
+#define SAGE_STANDALONE_DEFAULT_MATSIZE 0
+#define SAGE_STANDALONE_DEFAULT_REPCNT 0
+
 char *nextArg(char *str) {
   char *aptr = str;
   
@@ -29,17 +32,26 @@ char *nextArg(char *str) {
 
 void AppMain() 
 {
-  ebbrt::kprintf("%s %s\n", "Standalone Matrix App: START: ",ebbrt::runtime::bootcmdline);
+#if 0
 #ifndef __linux__
   auto uptime1_ns = ebbrt::clock::Uptime();
   auto uptime1_ms = std::chrono::duration_cast<std::chrono::milliseconds>(uptime1_ns).count();
   ebbrt::force_kprintf("Updtime pre-work: %d\n",uptime1_ms);
 #endif
+#endif
+  ebbrt::kprintf("%s", "Standalone Matrix App: START: ")
 
-  char *arg = nextArg(ebbrt::runtime::bootcmdline);
-  int matsize = atoi(arg);
-  arg = nextArg(arg);
-  int repcnt = atoi(arg);
+
+  int matsize = SAGE_STANDALONE_DEFAULT_MATSIZE;
+  int repcnt  = SAGE_STANDALONE_DEFAULT_REPCNT;
+
+  if (ebbrt::runtime::bootcmdline) {
+    char *arg = nextArg(ebbrt::runtime::bootcmdline);
+    int matsize = atoi(arg);
+    arg = nextArg(arg);
+    int repcnt = atoi(arg);
+    ebbrt::kprintf(" %s: ", ebbrt::runtime::bootcmdline);
+  };
 
   ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
 
@@ -55,5 +67,6 @@ void AppMain()
       count++;
     }
   }
+  ebbrt::kprintf("%s", "Standalone Matrix App: END.\n")
   terminate();
 }
