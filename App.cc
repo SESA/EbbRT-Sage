@@ -32,7 +32,7 @@ char *nextArg(char *str) {
 
 void AppMain() 
 {
-  ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
+  //ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
 
   int matsize = SAGE_STANDALONE_DEFAULT_MATSIZE;
   int repcnt  = SAGE_STANDALONE_DEFAULT_REPCNT;
@@ -45,7 +45,7 @@ void AppMain()
     ebbrt::kprintf(" %s: ", ebbrt::runtime::bootcmdline);
   };
 
-  ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
+  //ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
 
   int count = 0;
   while (count < repcnt) {
@@ -54,8 +54,11 @@ void AppMain()
                             ebbrt::Messenger::NetworkId("0000"));
     ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
     m->LocalTileRandomize();
+    m->LocalTileSum();
+    m->LocalTileDelete();
+    // WARNING, dereferencing m is undefined! 
     count++;
   }
-  ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
+  //ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
   terminate();
 }
