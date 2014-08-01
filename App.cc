@@ -55,17 +55,15 @@ void AppMain()
 
   ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
 
-  if (matsize > 0) {
-    int count = 0;
-    while( count < repcnt){
-      auto id = ebbrt::ebb_allocator->AllocateLocal();
-      Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
-                              ebbrt::Messenger::NetworkId("0000"));
-      ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
-      m->LocalTileRandomize();
-      m->LocalTileSum();
-      count++;
-    }
+  int count = 0;
+  while (count < repcnt) {
+    auto id = ebbrt::ebb_allocator->AllocateLocal();
+    Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
+                            ebbrt::Messenger::NetworkId("0000"));
+    ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
+    m->LocalTileRandomize();
+    ebbrt::kprintf("%f\n",m->LocalTileSum());
+    count++;
   }
   ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
   terminate();
