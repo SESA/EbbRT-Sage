@@ -32,15 +32,7 @@ char *nextArg(char *str) {
 
 void AppMain() 
 {
-#if 0
-#ifndef __linux__
-  auto uptime1_ns = ebbrt::clock::Uptime();
-  auto uptime1_ms = std::chrono::duration_cast<std::chrono::milliseconds>(uptime1_ns).count();
-  ebbrt::force_kprintf("Updtime pre-work: %d\n",uptime1_ms);
-#endif
-#endif
   ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
-
 
   int matsize = SAGE_STANDALONE_DEFAULT_MATSIZE;
   int repcnt  = SAGE_STANDALONE_DEFAULT_REPCNT;
@@ -62,7 +54,6 @@ void AppMain()
                             ebbrt::Messenger::NetworkId("0000"));
     ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
     m->LocalTileRandomize();
-    ebbrt::kprintf("%f\n",m->LocalTileSum());
     count++;
   }
   ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");

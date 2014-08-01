@@ -40,15 +40,7 @@ getBootCmdline(char **cmdline)
 
 int main() {
 
-  struct sysinfo s_info;
-  int error;
-  error = sysinfo(&s_info);
-  if (error != 0) {
-    printf("code error = %d\n", error);
-  }
-  printf("Uptime: %lu\n", (long int)s_info.uptime);
-
-  printf("EbbRT-Sage:hosted/standalone-backend: START\n");
+  //printf("EbbRT-Sage:hosted/standalone-backend: START\n");
   ebbrt::Runtime runtime;
   ebbrt::Context c(runtime);
   boost::asio::signal_set sig(c.io_service_, SIGINT);
@@ -64,6 +56,6 @@ int main() {
     }
   }
   c.Run();
-  printf("EbbRT-Sage:hosted/standalone-backend: END\n");
+  //printf("EbbRT-Sage:hosted/standalone-backend: END\n");
 }
 
