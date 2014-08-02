@@ -31,8 +31,12 @@ if [[ ! -a $baseinitrd ]]; then
   exit -1
 fi
 
-sudo cp $kernel $dir
-sudo chmod 744 $dir/vmlinuz-${linuxrel}
+if ! cp $kernel $dir; then
+  echo "ERROR: cp $kernel $dir failed"
+  exit -1
+fi
+
+chmod 744 $dir/vmlinuz-${linuxrel}
 
 mkdir $dir/root
 (cd $dir/root; gunzip -c $baseinitrd | cpio -id)
