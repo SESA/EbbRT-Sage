@@ -30,6 +30,8 @@ char *nextArg(char *str) {
   return aptr;
 }
 
+double result;
+
 void AppMain() 
 {
   //ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
@@ -53,9 +55,9 @@ void AppMain()
     Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
                             ebbrt::Messenger::NetworkId("0000"));
     ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
-    m->LocalTileRandomize();
-    m->LocalTileSum();
-    m->LocalTileDelete();
+    //m->LocalTileRandomize();
+    result = m->LocalTileSum();
+    //m->LocalTileDelete();
     // WARNING, dereferencing m is undefined! 
     count++;
   }
