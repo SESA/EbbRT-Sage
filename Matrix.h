@@ -31,6 +31,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
 				 size_t y_dim, size_t x_tile, size_t y_tile, 
 				 ebbrt::Messenger::NetworkId frontend_id);
 
+  void LocalTileDelete();
   double LocalTileGet(size_t x, size_t y);
   void  LocalTileSet(size_t x, size_t y, double val);
   void LocalTileRandomize();

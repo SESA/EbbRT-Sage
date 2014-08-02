@@ -30,17 +30,11 @@ char *nextArg(char *str) {
   return aptr;
 }
 
+double result;
+
 void AppMain() 
 {
-#if 0
-#ifndef __linux__
-  auto uptime1_ns = ebbrt::clock::Uptime();
-  auto uptime1_ms = std::chrono::duration_cast<std::chrono::milliseconds>(uptime1_ns).count();
-  ebbrt::force_kprintf("Updtime pre-work: %d\n",uptime1_ms);
-#endif
-#endif
-  ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
-
+  //ebbrt::kprintf("%s", "Standalone Matrix App: START: ");
 
   int matsize = SAGE_STANDALONE_DEFAULT_MATSIZE;
   int repcnt  = SAGE_STANDALONE_DEFAULT_REPCNT;
@@ -53,20 +47,20 @@ void AppMain()
     ebbrt::kprintf(" %s: ", ebbrt::runtime::bootcmdline);
   };
 
-  ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
+  //ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
 
-  if (matsize > 0) {
-    int count = 0;
-    while( count < repcnt){
-      auto id = ebbrt::ebb_allocator->AllocateLocal();
-      Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
-                              ebbrt::Messenger::NetworkId("0000"));
-      ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
-      m->LocalTileRandomize();
-      m->LocalTileSum();
-      count++;
-    }
+  int count = 0;
+  while (count < repcnt) {
+    auto id = ebbrt::ebb_allocator->AllocateLocal();
+    Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
+                            ebbrt::Messenger::NetworkId("0000"));
+    ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
+    //m->LocalTileRandomize();
+    result = m->LocalTileSum();
+    //m->LocalTileDelete();
+    // WARNING, dereferencing m is undefined! 
+    count++;
   }
-  ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
+  //ebbrt::kprintf("%s", "Standalone Matrix App: END.\n");
   terminate();
 }

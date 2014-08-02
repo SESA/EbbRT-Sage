@@ -23,12 +23,18 @@ EBBRT_PUBLISH_TYPE(, Matrix);
 
 Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
                size_t y_tile, ebbrt::Messenger::NetworkId frontend_id)
-    : ebbrt::Messagable<Matrix>(id), x_dim_(x_dim), y_dim_(y_dim),
+    : ebbrt::Messagable<Matrix>(id), my_id_(id), x_dim_(x_dim), y_dim_(y_dim),
       x_tile_(x_tile), y_tile_(y_tile),
       matrix_(boost::numeric::ublas::zero_matrix<double>(
           std::min(x_tile, x_dim), std::min(y_tile, y_dim))),
       frontend_id_(frontend_id) {}
 
+
+void Matrix::LocalTileDelete(){
+ 
+  delete this;
+
+}
 
 Matrix& Matrix::LocalTileCreate(ebbrt::EbbId id, 
 				size_t x_dim, size_t y_dim, size_t x_tile,
@@ -442,6 +448,7 @@ ebbrt::Future<double> Matrix::Sum() {
   }
   return std::get<0>(p).GetFuture();
 }
+
 
 void Matrix::Destroy() {
   for (auto& n : nodes_) {
