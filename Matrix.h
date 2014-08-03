@@ -14,10 +14,9 @@
 
 #ifdef __FRONTEND__
 #include <forward_list>
-#endif // #ifdef __FRONTEND__
+#endif  // #ifdef __FRONTEND__
 
 class Matrix : public ebbrt::Messagable<Matrix> {
-
 
  public:
   Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
@@ -27,15 +26,16 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   static ebbrt::Future<ebbrt::EbbRef<Matrix>>
   Create(size_t x_dim, size_t y_dim, size_t x_tile, size_t y_tile);
 
-  static Matrix& LocalTileCreate(ebbrt::EbbId id, size_t x_dim,
-				 size_t y_dim, size_t x_tile, size_t y_tile, 
-				 ebbrt::Messenger::NetworkId frontend_id);
+  static Matrix& LocalTileCreate(ebbrt::EbbId id, size_t x_dim, size_t y_dim,
+                                 size_t x_tile, size_t y_tile,
+                                 ebbrt::Messenger::NetworkId frontend_id);
 
   void LocalTileDelete();
   double LocalTileGet(size_t x, size_t y);
-  void  LocalTileSet(size_t x, size_t y, double val);
+  void LocalTileSet(size_t x, size_t y, double val);
   void LocalTileRandomize();
   double LocalTileSum();
+  void LocalTileTouch();
 #if 0
   ebbrt::EbbRef<Matrix> LocalTileMultiply(ebbrt::EbbRef<Matrix> matrix);
 #endif
@@ -74,7 +74,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   friend ebbrt::Messagable<Matrix>;
 
 #ifdef __FRONTEND__
-  // FRONT END ONLY 
+  // FRONT END ONLY
   Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
          size_t y_tile);
 
@@ -96,7 +96,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   uint32_t message_id_;
   ebbrt::EventManager::EventContext* multiply_activate_{nullptr};
   std::atomic_size_t multiply_completes;
-#endif // #ifdef __FRONTEND__
+#endif  // #ifdef __FRONTEND__
 };
 
-#endif // #ifndef MATRIX_H_
+#endif  // #ifndef MATRIX_H_

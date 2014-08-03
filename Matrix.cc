@@ -4,7 +4,6 @@
 //          http://www.boost.org/LICENSE_1_0.txt)
 #include "../Matrix.h"
 
-
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-local-typedefs"
 #include <boost/numeric/ublas/operation.hpp>
@@ -29,20 +28,13 @@ Matrix::Matrix(ebbrt::EbbId id, size_t x_dim, size_t y_dim, size_t x_tile,
           std::min(x_tile, x_dim), std::min(y_tile, y_dim))),
       frontend_id_(frontend_id) {}
 
+void Matrix::LocalTileDelete() { delete this; }
 
-void Matrix::LocalTileDelete(){
- 
-  delete this;
-
-}
-
-Matrix& Matrix::LocalTileCreate(ebbrt::EbbId id, 
-				size_t x_dim, size_t y_dim, size_t x_tile,
-				size_t y_tile, 
-				ebbrt::Messenger::NetworkId frontend_id)
-{
+Matrix& Matrix::LocalTileCreate(ebbrt::EbbId id, size_t x_dim, size_t y_dim,
+                                size_t x_tile, size_t y_tile,
+                                ebbrt::Messenger::NetworkId frontend_id) {
   // try to construct
-  auto p = new Matrix(id, x_dim, y_dim, x_tile,y_tile, frontend_id);
+  auto p = new Matrix(id, x_dim, y_dim, x_tile, y_tile, frontend_id);
 
   auto inserted = ebbrt::local_id_map->Insert(std::make_pair(id, p));
   if (inserted) {
@@ -84,23 +76,16 @@ Matrix& Matrix::HandleFault(ebbrt::EbbId id) {
       reinterpret_cast<const char*>(net_addr.begin()), net_addr.size()));
   // try to construct
   return Matrix::LocalTileCreate(id, data.getXDim(), data.getYDim(),
-				 data.getXTile(), data.getYTile(), nid);
+                                 data.getXTile(), data.getYTile(), nid);
 }
 
+double Matrix::LocalTileGet(size_t x, size_t y) { return matrix_(x, y); }
 
-double Matrix::LocalTileGet(size_t x, size_t y)
-{
-  return matrix_(x, y);
-}
-
-
-void  Matrix::LocalTileSet(size_t x, size_t y, double val) 
-{
+void Matrix::LocalTileSet(size_t x, size_t y, double val) {
   matrix_(x, y) = val;
 }
 
-void Matrix::LocalTileRandomize()
-{
+void Matrix::LocalTileRandomize() {
   std::default_random_engine generator(ebbrt::random::Get());
   std::uniform_real_distribution<double> distribution(-1, 1);
   for (auto& d : matrix_.data()) {
@@ -108,8 +93,14 @@ void Matrix::LocalTileRandomize()
   }
 }
 
-double Matrix::LocalTileSum() 
-{
+void Matrix::LocalTileTouch() {
+  for (auto it = matrix_.begin1(); it != matrix_.end1();
+       std::advance(it, 512)) {
+    *it = 1;
+  }
+}
+
+double Matrix::LocalTileSum() {
   double v = 0;
   for (auto& d : matrix_.data()) {
     v += d;
@@ -123,7 +114,6 @@ ebbrt::EbbRef<Matrix> LocalTileMultiply(ebbrt::EbbRef<Matrix> matrix)
 }
 #endif
 
-
 void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
                             std::unique_ptr<ebbrt::IOBuf>&& buffer) {
   auto reader = ebbrt::IOBufMessageReader(std::move(buffer));
@@ -136,8 +126,8 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     std::lock_guard<std::mutex> lock(lock_);
     auto it = get_map_.find(id);
     assert(it != get_map_.end());
-      it->second.SetValue(get_reply.getVal());
-      get_map_.erase(it);
+    it->second.SetValue(get_reply.getVal());
+    get_map_.erase(it);
     break;
   }
   case matrix::Reply::Which::SET_REPLY: {
@@ -184,7 +174,7 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     break;
   }
   }
-#else 
+#else
   auto request = reader.getRoot<matrix::Request>();
   switch (request.which()) {
   case matrix::Request::Which::GET_REQUEST: {
@@ -197,7 +187,7 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     auto get_builder = builder.initGetReply();
     get_builder.setId(id);
 
-    get_builder.setVal(LocalTileGet(x,y));
+    get_builder.setVal(LocalTileGet(x, y));
 
     SendMessage(nid, AppendHeader(message));
     break;
@@ -208,7 +198,7 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     auto x = set_request.getX() % x_tile_;
     auto y = set_request.getY() % y_tile_;
 
-    LocalTileSet(x,y,set_request.getVal());
+    LocalTileSet(x, y, set_request.getVal());
 
     ebbrt::IOBufMessageBuilder message;
     auto builder = message.initRoot<matrix::Reply>();
@@ -308,9 +298,8 @@ void Matrix::ReceiveMessage(ebbrt::Messenger::NetworkId nid,
     break;
   }
   }
-#endif // #ifdef __FRONTEND__ #else
+#endif  // #ifdef __FRONTEND__ #else
 }
-
 
 #ifdef __FRONTEND__
 #include <ebbrt/NodeAllocator.h>
@@ -448,7 +437,6 @@ ebbrt::Future<double> Matrix::Sum() {
   }
   return std::get<0>(p).GetFuture();
 }
-
 
 void Matrix::Destroy() {
   for (auto& n : nodes_) {
