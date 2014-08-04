@@ -57,7 +57,7 @@ void AppMain()
     ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
     //m->LocalTileRandomize();
     m->LocalTileTouch();
-    result = m->LocalTileSum();
+    result += m->LocalTileSum();
     //m->LocalTileDelete();
     // WARNING, dereferencing m is undefined! 
     count++;

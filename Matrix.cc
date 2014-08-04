@@ -93,10 +93,11 @@ void Matrix::LocalTileRandomize() {
   }
 }
 
-void Matrix::LocalTileTouch() {
+void Matrix::LocalTileTouch(double v) {
+  static double val = 1;
   for (auto it = matrix_.begin1(); it != matrix_.end1();
        std::advance(it, 512)) {
-    *it = 1;
+    const_cast<volatile double&>(*it) = v + val++;
   }
 }
 

@@ -35,7 +35,7 @@ class Matrix : public ebbrt::Messagable<Matrix> {
   void LocalTileSet(size_t x, size_t y, double val);
   void LocalTileRandomize();
   double LocalTileSum();
-  void LocalTileTouch();
+  void LocalTileTouch(double v);
 #if 0
   ebbrt::EbbRef<Matrix> LocalTileMultiply(ebbrt::EbbRef<Matrix> matrix);
 #endif
