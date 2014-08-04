@@ -44,7 +44,6 @@ void AppMain()
     matsize = atoi(arg);
     arg = nextArg(arg);
     repcnt = atoi(arg);
-    ebbrt::kprintf(" %s: ", ebbrt::runtime::bootcmdline);
   };
 
   //ebbrt::kprintf("matsize=%d repcnt=%d\n", matsize, repcnt);
