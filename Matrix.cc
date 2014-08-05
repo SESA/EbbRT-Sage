@@ -86,7 +86,7 @@ void Matrix::LocalTileSet(size_t x, size_t y, double val) {
 }
 
 void Matrix::LocalTileRandomize() {
-  std::default_random_engine generator(ebbrt::random::Get());
+  std::default_random_engine generator(13);
   std::uniform_real_distribution<double> distribution(-1, 1);
   for (auto& d : matrix_.data()) {
     d = distribution(generator);
