@@ -54,8 +54,8 @@ void AppMain()
     Matrix::LocalTileCreate(id, matsize, matsize, matsize, matsize,
                             ebbrt::Messenger::NetworkId("0000"));
     ebbrt::EbbRef<Matrix> m = ebbrt::EbbRef<Matrix>(id);
-    m->LocalTileRandomize();
-    //m->LocalTileTouch(count);
+    //m->LocalTileRandomize();
+    m->LocalTileTouch(count);
     result += m->LocalTileSum();
     //m->LocalTileDelete();
     // WARNING, dereferencing m is undefined! 
